@@ -8,7 +8,7 @@
 
 ## 2D and 3D cross-platform game engine
 
-## My intention with this fork is to modify the engine to make it suitable for open world games. No commitments.
+**My intention with this fork is to modify the engine to make it suitable for open world games. No commitments. None of the features implemented here will be merged to the main engine since this is a highly experimental project.**
 
 **[Godot Engine](https://godotengine.org) is a feature-packed, cross-platform
 game engine to create 2D and 3D games from a unified interface.** It provides a
