@@ -1,4 +1,5 @@
 #include "world_partition_streamer_3d.h"
+#include "core/object/class_db.h"
 #include "core/config/engine.h"
 
 void WorldPartitionStreamer3D::_bind_methods() {

@@ -5,8 +5,8 @@
 #include "world_partition_grid.h"
 #include "world_partition_streamer_3d.h"
 #include "core/io/resource_loader.h"
-#include "servers/rendering_server.h"
-#include "servers/physics_server_3d.h"
+#include "servers/rendering/rendering_server.h"
+#include "servers/physics_3d/physics_server_3d.h"
 
 class WorldPartitionManager : public Node3D {
 	GDCLASS(WorldPartitionManager, Node3D);

@@ -1,4 +1,5 @@
 #include "world_chunk_metadata.h"
+#include "core/object/class_db.h"
 
 void WorldChunkMetadata::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("add_item", "asset_path", "transform", "is_occluder"), &WorldChunkMetadata::add_item, DEFVAL(false));

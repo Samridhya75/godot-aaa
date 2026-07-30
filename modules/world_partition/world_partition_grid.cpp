@@ -1,4 +1,5 @@
 #include "world_partition_grid.h"
+#include "core/object/class_db.h"
 
 void WorldPartitionGrid::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_cell_size", "size"), &WorldPartitionGrid::set_cell_size);

@@ -1,5 +1,6 @@
 #include "world_partition_manager.h"
 #include "core/config/engine.h"
+#include "core/object/class_db.h"
 
 void WorldPartitionManager::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_grid", "grid"), &WorldPartitionManager::set_grid);
@@ -113,9 +114,9 @@ void WorldPartitionManager::_instantiate_chunk(const WorldGridIndex &p_index) {
 
 	// Directly instantiate assets into Servers without blocking SceneTree
 	for (int i = 0; i < lc.metadata->get_item_count(); i++) {
-		String path = lc.metadata->get_item_asset_path(i);
-		Transform3D xform = lc.metadata->get_item_transform(i);
-		bool is_occluder = lc.metadata->is_item_occluder(i);
+		// String path = lc.metadata->get_item_asset_path(i);
+		// Transform3D xform = lc.metadata->get_item_transform(i);
+		// bool is_occluder = lc.metadata->is_item_occluder(i);
 
 		// Boilerplate for Direct Server Instantiation:
 		// Ref<Mesh> mesh = ResourceLoader::load(path);
@@ -136,11 +137,11 @@ void WorldPartitionManager::_unload_chunk(const WorldGridIndex &p_index) {
 	LoadedChunk &lc = active_chunks[p_index];
 
 	for (int i = 0; i < lc.render_instances.size(); i++) {
-		RenderingServer::get_singleton()->free(lc.render_instances[i]);
+		RenderingServer::get_singleton()->free_rid(lc.render_instances[i]);
 	}
 
 	for (int i = 0; i < lc.physics_instances.size(); i++) {
-		PhysicsServer3D::get_singleton()->free(lc.physics_instances[i]);
+		PhysicsServer3D::get_singleton()->free_rid(lc.physics_instances[i]);
 	}
 
 	active_chunks.erase(p_index);
