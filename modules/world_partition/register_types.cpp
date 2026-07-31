@@ -9,7 +9,7 @@
 
 #ifdef TOOLS_ENABLED
 #include "world_partition_baker_plugin.h"
-#include "editor/editor_node.h"
+#include "editor/plugins/editor_plugin.h"
 #endif
 
 void initialize_world_partition_module(ModuleInitializationLevel p_level) {
@@ -22,7 +22,7 @@ void initialize_world_partition_module(ModuleInitializationLevel p_level) {
 
 #ifdef TOOLS_ENABLED
 	if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
-		EditorNode::add_editor_plugin(memnew(WorldPartitionBakerPlugin));
+		EditorPlugins::add_by_type<WorldPartitionBakerPlugin>();
 	}
 #endif
 }
