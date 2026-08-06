@@ -6,6 +6,7 @@
 #include "world_partition_grid.h"
 #include "world_partition_manager.h"
 #include "world_partition_streamer_3d.h"
+#include "world_partition_setup.h"
 
 #ifdef TOOLS_ENABLED
 #include "world_partition_baker_plugin.h"
@@ -18,6 +19,7 @@ void initialize_world_partition_module(ModuleInitializationLevel p_level) {
 		ClassDB::register_class<WorldChunkMetadata>();
 		ClassDB::register_class<WorldPartitionManager>();
 		ClassDB::register_class<WorldPartitionStreamer3D>();
+		ClassDB::register_class<WorldPartitionSetup>();
 	}
 
 #ifdef TOOLS_ENABLED

@@ -3,6 +3,8 @@
 #ifdef TOOLS_ENABLED
 
 #include "editor/editor_interface.h"
+#include "world_partition_setup_gizmo_plugin.h"
+#include "editor/scene/3d/node_3d_editor_plugin.h"
 #include "scene/3d/mesh_instance_3d.h"
 #include "scene/3d/occluder_instance_3d.h"
 #include "core/io/resource_saver.h"
@@ -100,6 +102,8 @@ void WorldPartitionBakerPlugin::_bake_scene() {
 }
 
 WorldPartitionBakerPlugin::WorldPartitionBakerPlugin() {
+	gizmo_plugin.instantiate();
+	Node3DEditor::get_singleton()->add_gizmo_plugin(gizmo_plugin);
 }
 
 WorldPartitionBakerPlugin::~WorldPartitionBakerPlugin() {

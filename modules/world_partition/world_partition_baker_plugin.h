@@ -6,11 +6,14 @@
 #include "editor/plugins/editor_plugin.h"
 #include "scene/gui/button.h"
 
+class WorldPartitionSetupGizmoPlugin;
+
 class WorldPartitionBakerPlugin : public EditorPlugin {
 	GDCLASS(WorldPartitionBakerPlugin, EditorPlugin);
 
 private:
 	Button *bake_button;
+	Ref<WorldPartitionSetupGizmoPlugin> gizmo_plugin;
 
 	void _bake_scene();
 
