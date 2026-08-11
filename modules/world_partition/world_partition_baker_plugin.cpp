@@ -13,6 +13,7 @@
 #include "world_partition_grid.h"
 #include "core/object/callable_mp.h"
 #include "core/object/class_db.h"
+#include "scene/resources/packed_scene.h"
 
 void WorldPartitionBakerPlugin::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_bake_scene"), &WorldPartitionBakerPlugin::_bake_scene);
@@ -38,7 +39,7 @@ void WorldPartitionBakerPlugin::_bake_scene() {
 	}
 
 	float cell_size = 100.0;
-	HashMap<WorldGridIndex, Ref<WorldChunkMetadata>, WorldGridIndexHasher> baked_chunks;
+	HashMap<WorldGridIndex, Node3D*, WorldGridIndexHasher> chunk_roots;
 
 	List<Node *> stack;
 	stack.push_back(root);
@@ -62,17 +63,31 @@ void WorldPartitionBakerPlugin::_bake_scene() {
 			idx.x = grid_x;
 			idx.z = grid_z;
 
-			if (!baked_chunks.has(idx)) {
-				Ref<WorldChunkMetadata> new_chunk;
-				new_chunk.instantiate();
-				baked_chunks[idx] = new_chunk;
+			if (!chunk_roots.has(idx)) {
+				Node3D *chunk_root = memnew(Node3D);
+				chunk_root->set_name(vformat("Chunk_%d_%d", idx.x, idx.z));
+				chunk_roots[idx] = chunk_root;
+			}
+			
+			// Duplicate the node
+			Node *dup = current->duplicate();
+			// Strip out any children that got duplicated automatically
+			for (int i = dup->get_child_count() - 1; i >= 0; i--) {
+				Node *c = dup->get_child(i);
+				dup->remove_child(c);
+				memdelete(c);
 			}
 
-			// Dummy asset path for skeleton. In real system, this extracts mesh paths.
-			String asset_path = "res://dummy_asset_" + current->get_name() + ".res";
-			bool is_occluder = (occluder_instance != nullptr);
+			// Add to chunk root
+			chunk_roots[idx]->add_child(dup);
+			dup->set_owner(chunk_roots[idx]);
 			
-			baked_chunks[idx]->add_item(asset_path, global_xform, is_occluder);
+			// Update transform to be relative to the chunk root (identity since we bake in world space for now)
+			// Wait, the chunk root is at (0,0,0), so global_xform is perfect!
+			Node3D *dup_spatial = Object::cast_to<Node3D>(dup);
+			if (dup_spatial) {
+				dup_spatial->set_transform(global_xform);
+			}
 		}
 
 		for (int i = 0; i < current->get_child_count(); i++) {
@@ -90,11 +105,26 @@ void WorldPartitionBakerPlugin::_bake_scene() {
 	main_grid.instantiate();
 	main_grid->set_cell_size(cell_size);
 
-	for (const KeyValue<WorldGridIndex, Ref<WorldChunkMetadata>> &E : baked_chunks) {
-		String filename = vformat("res://world_partition_data/chunk_%d_%d.res", E.key.x, E.key.z);
-		ResourceSaver::save(E.value, filename);
+	for (const KeyValue<WorldGridIndex, Node3D*> &E : chunk_roots) {
+		// Save the packed scene
+		Ref<PackedScene> packed_scene;
+		packed_scene.instantiate();
+		packed_scene->pack(E.value);
+		String scene_filename = vformat("res://world_partition_data/chunk_%d_%d.scn", E.key.x, E.key.z);
+		ResourceSaver::save(packed_scene, scene_filename);
+
+		// Store just the scene path in the metadata
+		Ref<WorldChunkMetadata> meta;
+		meta.instantiate();
+		meta->add_item(scene_filename, Transform3D(), false);
 		
-		main_grid->set_chunk(E.key.level, E.key.x, E.key.z, E.value);
+		String meta_filename = vformat("res://world_partition_data/chunk_%d_%d.res", E.key.x, E.key.z);
+		ResourceSaver::save(meta, meta_filename);
+		
+		main_grid->set_chunk(E.key.level, E.key.x, E.key.z, meta);
+		
+		// Clean up the temporary node tree
+		memdelete(E.value);
 	}
 
 	ResourceSaver::save(main_grid, "res://world_partition_data/main_grid.res");

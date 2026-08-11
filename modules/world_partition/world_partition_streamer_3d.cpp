@@ -1,6 +1,7 @@
 #include "world_partition_streamer_3d.h"
 #include "core/object/class_db.h"
 #include "core/config/engine.h"
+#include "scene/main/scene_tree.h"
 
 void WorldPartitionStreamer3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_streaming_radius", "radius"), &WorldPartitionStreamer3D::set_streaming_radius);
@@ -22,6 +23,17 @@ void WorldPartitionStreamer3D::_notification(int p_what) {
 			if (!Engine::get_singleton()->is_editor_hint()) {
 				set_physics_process_internal(true);
 				last_position = get_global_position();
+				
+				if (is_inside_tree()) {
+					get_tree()->call_group("world_partition_manager", "register_streamer", this);
+				}
+			}
+		} break;
+		case NOTIFICATION_EXIT_TREE: {
+			if (!Engine::get_singleton()->is_editor_hint()) {
+				if (is_inside_tree()) {
+					get_tree()->call_group("world_partition_manager", "unregister_streamer", this);
+				}
 			}
 		} break;
 		case NOTIFICATION_INTERNAL_PHYSICS_PROCESS: {

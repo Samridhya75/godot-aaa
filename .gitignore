@@ -398,3 +398,4 @@ $RECYCLE.BIN/
 *.generated.props
 implementation_plan.md
 .agents
+generate_test_world.gd

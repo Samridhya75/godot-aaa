@@ -1,6 +1,8 @@
 #include "world_partition_manager.h"
 #include "core/config/engine.h"
 #include "core/object/class_db.h"
+#include "scene/resources/packed_scene.h"
+#include "core/io/resource_loader.h"
 
 void WorldPartitionManager::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_grid", "grid"), &WorldPartitionManager::set_grid);
@@ -15,6 +17,7 @@ void WorldPartitionManager::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_ENTER_TREE: {
 			if (!Engine::get_singleton()->is_editor_hint()) {
+				add_to_group("world_partition_manager");
 				set_physics_process_internal(true);
 			}
 		} break;
@@ -112,20 +115,17 @@ void WorldPartitionManager::_instantiate_chunk(const WorldGridIndex &p_index) {
 		return;
 	}
 
-	// Directly instantiate assets into Servers without blocking SceneTree
 	for (int i = 0; i < lc.metadata->get_item_count(); i++) {
-		// String path = lc.metadata->get_item_asset_path(i);
-		// Transform3D xform = lc.metadata->get_item_transform(i);
-		// bool is_occluder = lc.metadata->is_item_occluder(i);
+		String path = lc.metadata->get_item_asset_path(i);
 
-		// Boilerplate for Direct Server Instantiation:
-		// Ref<Mesh> mesh = ResourceLoader::load(path);
-		// if (mesh.is_valid()) {
-		//     RID instance = RenderingServer::get_singleton()->instance_create();
-		//     RenderingServer::get_singleton()->instance_set_base(instance, mesh->get_rid());
-		//     RenderingServer::get_singleton()->instance_set_transform(instance, xform);
-		//     lc.render_instances.push_back(instance);
-		// }
+		Ref<PackedScene> scene = ResourceLoader::load(path);
+		if (scene.is_valid()) {
+			Node *instance = scene->instantiate();
+			if (instance) {
+				add_child(instance);
+				lc.scene_instances.push_back(instance);
+			}
+		}
 	}
 }
 
@@ -135,6 +135,13 @@ void WorldPartitionManager::_unload_chunk(const WorldGridIndex &p_index) {
 	}
 
 	LoadedChunk &lc = active_chunks[p_index];
+
+	for (int i = 0; i < lc.scene_instances.size(); i++) {
+		Node *node = lc.scene_instances[i];
+		if (node) {
+			node->queue_free();
+		}
+	}
 
 	for (int i = 0; i < lc.render_instances.size(); i++) {
 		RenderingServer::get_singleton()->free_rid(lc.render_instances[i]);

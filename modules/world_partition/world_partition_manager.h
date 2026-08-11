@@ -26,6 +26,7 @@ private:
 		Ref<WorldChunkMetadata> metadata;
 		Vector<RID> render_instances;
 		Vector<RID> physics_instances;
+		Vector<Node*> scene_instances;
 	};
 
 	HashMap<WorldGridIndex, LoadedChunk, WorldGridIndexHasher> active_chunks;
