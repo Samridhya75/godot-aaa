@@ -149,7 +149,7 @@ void WorldPartitionManager::_load_chunk(const WorldGridIndex &p_index) {
 	if (lc.metadata.is_valid()) {
 		for (int i = 0; i < lc.metadata->get_item_count(); i++) {
 			String path = lc.metadata->get_item_asset_path(i);
-			ResourceLoader::load_threaded_request(path, "PackedScene");
+			ResourceLoader::load_threaded_request(path, "PackedScene", true); // use_sub_threads = true
 		}
 	}
 	
