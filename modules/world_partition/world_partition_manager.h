@@ -14,6 +14,7 @@ class WorldPartitionManager : public Node3D {
 private:
 	Ref<WorldPartitionGrid> grid;
 	Vector<WorldPartitionStreamer3D *> streamers;
+	float unload_padding = 20.0;
 
 	enum ChunkState {
 		STATE_UNLOADED,
@@ -43,6 +44,9 @@ protected:
 public:
 	void set_grid(const Ref<WorldPartitionGrid> &p_grid);
 	Ref<WorldPartitionGrid> get_grid() const;
+
+	void set_unload_padding(float p_padding);
+	float get_unload_padding() const;
 
 	void register_streamer(WorldPartitionStreamer3D *p_streamer);
 	void unregister_streamer(WorldPartitionStreamer3D *p_streamer);

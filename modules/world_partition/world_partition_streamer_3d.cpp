@@ -40,7 +40,14 @@ void WorldPartitionStreamer3D::_notification(int p_what) {
 			Vector3 current_pos = get_global_position();
 			float delta = get_physics_process_delta_time();
 			if (delta > 0.0) {
-				current_velocity = (current_pos - last_position) / delta;
+				Vector3 diff = current_pos - last_position;
+				// If the streamer moved more than 100 meters in a single physics frame (teleport),
+				// ignore the velocity calculation to prevent the prediction bounding box from exploding.
+				if (diff.length_squared() > 10000.0) { 
+					current_velocity = Vector3();
+				} else {
+					current_velocity = diff / delta;
+				}
 			}
 			last_position = current_pos;
 		} break;
