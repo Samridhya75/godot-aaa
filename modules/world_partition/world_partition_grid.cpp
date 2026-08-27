@@ -8,6 +8,7 @@ void WorldPartitionGrid::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_chunk", "level", "x", "z", "chunk"), &WorldPartitionGrid::set_chunk);
 	ClassDB::bind_method(D_METHOD("get_chunk", "level", "x", "z"), &WorldPartitionGrid::get_chunk);
+	ClassDB::bind_method(D_METHOD("has_chunk", "level", "x", "z"), &WorldPartitionGrid::has_chunk);
 	ClassDB::bind_method(D_METHOD("remove_chunk", "level", "x", "z"), &WorldPartitionGrid::remove_chunk);
 	ClassDB::bind_method(D_METHOD("clear_chunks"), &WorldPartitionGrid::clear_chunks);
 
@@ -47,6 +48,14 @@ Ref<WorldChunkMetadata> WorldPartitionGrid::get_chunk(int p_level, int p_x, int 
 		return chunks[idx];
 	}
 	return Ref<WorldChunkMetadata>();
+}
+
+bool WorldPartitionGrid::has_chunk(int p_level, int p_x, int p_z) const {
+	WorldGridIndex idx;
+	idx.level = p_level;
+	idx.x = p_x;
+	idx.z = p_z;
+	return chunks.has(idx);
 }
 
 void WorldPartitionGrid::remove_chunk(int p_level, int p_x, int p_z) {

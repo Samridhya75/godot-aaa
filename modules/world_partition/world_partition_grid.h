@@ -40,6 +40,7 @@ public:
 
 	void set_chunk(int p_level, int p_x, int p_z, const Ref<WorldChunkMetadata> &p_chunk);
 	Ref<WorldChunkMetadata> get_chunk(int p_level, int p_x, int p_z) const;
+	bool has_chunk(int p_level, int p_x, int p_z) const;
 	void remove_chunk(int p_level, int p_x, int p_z);
 	void clear_chunks();
 

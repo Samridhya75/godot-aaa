@@ -36,6 +36,7 @@ private:
 	void _load_chunk(const WorldGridIndex &p_index);
 	void _unload_chunk(const WorldGridIndex &p_index);
 	void _instantiate_chunk(const WorldGridIndex &p_index);
+	void _evaluate_chunk_tree(const WorldGridIndex &p_idx, WorldPartitionStreamer3D *p_streamer, const PackedFloat32Array &p_ranges, float p_r0, Vector<WorldGridIndex> &r_load_chunks);
 
 protected:
 	static void _bind_methods();
