@@ -1,3 +1,13 @@
-Import("env")
+#!/usr/bin/env python
+from misc.utility.scons_hints import *
 
-env.add_source_files(env.modules_sources, "*.cpp")
+Import("env")
+Import("env_modules")
+
+env_wp = env_modules.Clone()
+
+glsl_header = env_wp.GLSL_HEADER("gpu_cull.glsl")
+env_wp.Depends(glsl_header, ["#glsl_builders.py"])
+
+sources = env_wp.add_source_files(env.modules_sources, "*.cpp")
+env_wp.Depends(sources, glsl_header)

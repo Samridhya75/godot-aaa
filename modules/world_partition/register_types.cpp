@@ -4,13 +4,14 @@
 
 #include "world_chunk_metadata.h"
 #include "world_partition_grid.h"
+#include "world_partition_gpu_culler.h"
 #include "world_partition_manager.h"
-#include "world_partition_streamer_3d.h"
 #include "world_partition_setup.h"
+#include "world_partition_streamer_3d.h"
 
 #ifdef TOOLS_ENABLED
-#include "world_partition_baker_plugin.h"
 #include "editor/plugins/editor_plugin.h"
+#include "world_partition_baker_plugin.h"
 #endif
 
 void initialize_world_partition_module(ModuleInitializationLevel p_level) {
@@ -20,6 +21,7 @@ void initialize_world_partition_module(ModuleInitializationLevel p_level) {
 		ClassDB::register_class<WorldPartitionManager>();
 		ClassDB::register_class<WorldPartitionStreamer3D>();
 		ClassDB::register_class<WorldPartitionSetup>();
+		ClassDB::register_class<WorldPartitionGPUCuller3D>();
 	}
 
 #ifdef TOOLS_ENABLED
