@@ -11,6 +11,8 @@ void WorldPartitionGrid::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("has_chunk", "level", "x", "z"), &WorldPartitionGrid::has_chunk);
 	ClassDB::bind_method(D_METHOD("remove_chunk", "level", "x", "z"), &WorldPartitionGrid::remove_chunk);
 	ClassDB::bind_method(D_METHOD("clear_chunks"), &WorldPartitionGrid::clear_chunks);
+	
+	ClassDB::bind_method(D_METHOD("get_max_level"), &WorldPartitionGrid::get_max_level);
 
 	ClassDB::bind_method(D_METHOD("set_grid_data", "data"), &WorldPartitionGrid::set_grid_data);
 	ClassDB::bind_method(D_METHOD("get_grid_data"), &WorldPartitionGrid::get_grid_data);
@@ -24,6 +26,16 @@ void WorldPartitionGrid::set_cell_size(float p_size) {
 
 float WorldPartitionGrid::get_cell_size() const {
 	return cell_size;
+}
+
+int WorldPartitionGrid::get_max_level() const {
+	int max_lvl = 0;
+	for (const KeyValue<WorldGridIndex, Ref<WorldChunkMetadata>> &E : chunks) {
+		if (E.key.level > max_lvl) {
+			max_lvl = E.key.level;
+		}
+	}
+	return max_lvl;
 }
 
 void WorldPartitionGrid::set_chunk(int p_level, int p_x, int p_z, const Ref<WorldChunkMetadata> &p_chunk) {

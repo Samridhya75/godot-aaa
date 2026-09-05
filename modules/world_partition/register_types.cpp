@@ -5,6 +5,7 @@
 #include "world_chunk_metadata.h"
 #include "world_partition_grid.h"
 #include "world_partition_gpu_culler.h"
+#include "world_partition_hiz_compositor_effect.h"
 #include "world_partition_manager.h"
 #include "world_partition_setup.h"
 #include "world_partition_streamer_3d.h"
@@ -22,6 +23,7 @@ void initialize_world_partition_module(ModuleInitializationLevel p_level) {
 		ClassDB::register_class<WorldPartitionStreamer3D>();
 		ClassDB::register_class<WorldPartitionSetup>();
 		ClassDB::register_class<WorldPartitionGPUCuller3D>();
+		ClassDB::register_class<WorldPartitionHiZCompositorEffect>();
 	}
 
 #ifdef TOOLS_ENABLED

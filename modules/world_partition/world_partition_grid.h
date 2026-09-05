@@ -38,6 +38,8 @@ public:
 	void set_cell_size(float p_size);
 	float get_cell_size() const;
 
+	int get_max_level() const;
+
 	void set_chunk(int p_level, int p_x, int p_z, const Ref<WorldChunkMetadata> &p_chunk);
 	Ref<WorldChunkMetadata> get_chunk(int p_level, int p_x, int p_z) const;
 	bool has_chunk(int p_level, int p_x, int p_z) const;

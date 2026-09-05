@@ -18,8 +18,10 @@ private:
 	float update_interval = 0.1;
 	float time_since_last_update = 0.1;
 
-	int max_instantiations_per_frame = 2;
-	float time_budget_ms = 4.0;
+	int max_instantiations_per_frame = 4;
+	float time_budget_ms = 8.0;
+	int max_concurrent_loads = 2;
+	int current_concurrent_loads = 0;
 
 	bool cross_fade_enabled = false;
 	float fade_margin = 20.0;
@@ -33,6 +35,7 @@ private:
 
 	enum ChunkState {
 		STATE_UNLOADED,
+		STATE_QUEUED,
 		STATE_LOADING,
 		STATE_LOADED
 	};
@@ -44,7 +47,7 @@ private:
 		Vector<RID> physics_instances;
 		Vector<RID> occluder_instances;
 		Vector<Node *> scene_instances;
-		int gpu_cull_batch_id = -1;
+		Vector<int> gpu_cull_batch_ids;
 	};
 
 	HashMap<WorldGridIndex, LoadedChunk, WorldGridIndexHasher> active_chunks;

@@ -257,8 +257,21 @@ void WorldPartitionManager::_process_streamers() {
 		for (int i = 0; i < streamers.size(); i++) {
 			WorldPartitionStreamer3D *streamer = streamers[i];
 			PackedFloat32Array ranges = streamer->get_hlod_ranges();
-			int max_level = ranges.size();
 			float r0 = streamer->get_streaming_radius();
+			
+			if (ranges.is_empty() && grid.is_valid()) {
+				int grid_max = grid->get_max_level();
+				if (grid_max > 0) {
+					ranges.resize(grid_max);
+					float current_r = r0;
+					for (int lvl = 0; lvl < grid_max; lvl++) {
+						current_r *= 2.0f; // Scale exponentially
+						ranges.write[lvl] = current_r;
+					}
+				}
+			}
+
+			int max_level = ranges.size();
 			float max_radius = (max_level == 0) ? r0 : ranges[max_level - 1];
 
 			AABB max_bounds = streamer->get_predicted_bounds(max_radius);
@@ -385,18 +398,45 @@ void WorldPartitionManager::_process_streamers() {
 					if (instantiated_this_frame < max_instantiations_per_frame && elapsed < max_usec) {
 						_instantiate_chunk(idx);
 						lc.state = STATE_LOADED;
+						current_concurrent_loads--;
 						instantiated_this_frame++;
 					}
 				}
 			} else {
 				lc.state = STATE_LOADED;
+				current_concurrent_loads--;
+			}
+		}
+	}
+
+	// 4. Process queued chunks (I/O Governor)
+	for (int i = 0; i < desired_chunks.size(); i++) {
+		const WorldGridIndex &idx = desired_chunks[i];
+		if (!active_chunks.has(idx)) {
+			continue;
+		}
+
+		LoadedChunk &lc = active_chunks[idx];
+		if (lc.state == STATE_QUEUED && current_concurrent_loads < max_concurrent_loads) {
+			lc.state = STATE_LOADING;
+			current_concurrent_loads++;
+
+			if (lc.metadata.is_valid()) {
+				for (int j = 0; j < lc.metadata->get_item_count(); j++) {
+					String path = lc.metadata->get_item_asset_path(j);
+					ResourceLoader::load_threaded_request(path, "", true); // use_sub_threads = true
+				}
+			} else {
+				// Instantly loaded if empty
+				lc.state = STATE_LOADED;
+				current_concurrent_loads--;
 			}
 		}
 	}
 
 	// Clean up any loading chunks that are no longer desired
 	for (KeyValue<WorldGridIndex, LoadedChunk> &E : active_chunks) {
-		if (E.value.state == STATE_LOADING && !desired_chunks_set.has(E.key)) {
+		if ((E.value.state == STATE_LOADING || E.value.state == STATE_QUEUED) && !desired_chunks_set.has(E.key)) {
 			obsolete_loading.push_back(E.key);
 		}
 	}
@@ -428,8 +468,6 @@ void WorldPartitionManager::_evaluate_chunk_tree(const WorldGridIndex &p_idx, Wo
 		float cz = CLAMP(closest_path_point.y, p_idx.z * cell_size, (p_idx.z + 1) * cell_size);
 		float dist = Math::sqrt(Vector2(closest_path_point.x - cx, closest_path_point.y - cz).length_squared());
 
-		float margin = cross_fade_enabled ? fade_margin : 0.0f;
-
 		// Hysteresis: if any child is already active, add unload_padding to threshold
 		float split_threshold = threshold;
 		bool any_child_active = false;
@@ -453,15 +491,8 @@ void WorldPartitionManager::_evaluate_chunk_tree(const WorldGridIndex &p_idx, Wo
 			split_threshold += unload_padding;
 		}
 
-		// Split if within upper boundary of transition band
-		float split_margin = (cross_fade_enabled && grid.is_valid() && grid->has_chunk(p_idx.level, p_idx.x, p_idx.z)) ? fade_margin : 0.0f;
-		if (dist < (split_threshold + split_margin)) {
+		if (dist < split_threshold) {
 			should_split = true;
-		}
-
-		// Keep parent active if within or beyond lower boundary of transition band ONLY if parent chunk actually exists
-		if (cross_fade_enabled && grid.is_valid() && grid->has_chunk(p_idx.level, p_idx.x, p_idx.z) && dist >= (split_threshold - split_margin)) {
-			keep_parent = true;
 		}
 	}
 
@@ -478,11 +509,6 @@ void WorldPartitionManager::_evaluate_chunk_tree(const WorldGridIndex &p_idx, Wo
 				}
 			}
 		}
-		if (keep_parent) {
-			if (r_load_chunks.find(p_idx) == -1) {
-				r_load_chunks.push_back(p_idx);
-			}
-		}
 	} else {
 		if (r_load_chunks.find(p_idx) == -1) {
 			r_load_chunks.push_back(p_idx);
@@ -492,15 +518,8 @@ void WorldPartitionManager::_evaluate_chunk_tree(const WorldGridIndex &p_idx, Wo
 
 void WorldPartitionManager::_load_chunk(const WorldGridIndex &p_index) {
 	LoadedChunk lc;
-	lc.state = STATE_LOADING;
+	lc.state = STATE_QUEUED;
 	lc.metadata = grid->get_chunk(p_index.level, p_index.x, p_index.z);
-
-	if (lc.metadata.is_valid()) {
-		for (int i = 0; i < lc.metadata->get_item_count(); i++) {
-			String path = lc.metadata->get_item_asset_path(i);
-			ResourceLoader::load_threaded_request(path, "", true); // use_sub_threads = true
-		}
-	}
 
 	active_chunks[p_index] = lc;
 }
@@ -534,57 +553,17 @@ void WorldPartitionManager::_instantiate_chunk(const WorldGridIndex &p_index) {
 		return;
 	}
 
-	float r0 = 150.0f;
-	PackedFloat32Array ranges;
-	if (!streamers.is_empty()) {
-		r0 = streamers[0]->get_streaming_radius();
-		ranges = streamers[0]->get_hlod_ranges();
-	}
-
-	float margin = cross_fade_enabled ? fade_margin : 0.0f;
+	// Chunks are dynamically streamed and safely swapped at cell boundaries with hysteresis.
+	// Disable per-mesh visibility range alpha fading, ensuring solid opaque rendering with full depth writing.
 	float range_begin = 0.0f;
 	float range_end = 0.0f;
 	float begin_margin = 0.0f;
 	float end_margin = 0.0f;
 	RenderingServerEnums::VisibilityRangeFadeMode fade_mode = RenderingServerEnums::VISIBILITY_RANGE_FADE_DISABLED;
 
-	// Only apply cross-fade if enabled AND a parent HLOD chunk actually exists to replace this chunk!
-	if (cross_fade_enabled && grid.is_valid()) {
-		int parent_x = Math::floor((float)p_index.x / 2.0f);
-		int parent_z = Math::floor((float)p_index.z / 2.0f);
-		bool has_parent_hlod = grid->has_chunk(p_index.level + 1, parent_x, parent_z);
-
-		if (p_index.level == 0) {
-			range_begin = 0.0f;
-			begin_margin = 0.0f;
-			if (has_parent_hlod && !ranges.is_empty()) {
-				range_end = r0;
-				end_margin = margin;
-				fade_mode = RenderingServerEnums::VISIBILITY_RANGE_FADE_SELF;
-			} else {
-				range_end = 0.0f;
-				end_margin = 0.0f;
-			}
-		} else {
-			// Level >= 1 (HLOD)
-			range_begin = (p_index.level == 1) ? r0 : ((p_index.level - 2 < ranges.size()) ? ranges[p_index.level - 2] : r0);
-			begin_margin = margin;
-			fade_mode = RenderingServerEnums::VISIBILITY_RANGE_FADE_SELF;
-
-			if (has_parent_hlod && (p_index.level - 1 < ranges.size())) {
-				range_end = ranges[p_index.level - 1];
-				end_margin = margin;
-			} else {
-				range_end = 0.0f;
-				end_margin = 0.0f;
-			}
-		}
-	}
-
 	WorldPartitionGPUCuller3D *culler = Object::cast_to<WorldPartitionGPUCuller3D>(get_gpu_culler());
-	TypedArray<Transform3D> gpu_transforms;
-	AABB combined_local_aabb;
-	bool has_gpu_instances = false;
+	HashMap<int, TypedArray<Transform3D>> batched_transforms;
+	HashMap<int, AABB> batched_aabbs;
 
 	for (int i = 0; i < lc.metadata->get_item_count(); i++) {
 		String path = lc.metadata->get_item_asset_path(i);
@@ -613,23 +592,34 @@ void WorldPartitionManager::_instantiate_chunk(const WorldGridIndex &p_index) {
 		// Direct Server Instancing for fast static meshes without SceneTree overhead
 		Ref<Mesh> mesh = res;
 		if (mesh.is_valid()) {
-			RID instance = RenderingServer::get_singleton()->instance_create();
-			RenderingServer::get_singleton()->instance_set_base(instance, mesh->get_rid());
-			if (get_world_3d().is_valid()) {
-				RenderingServer::get_singleton()->instance_set_scenario(instance, get_world_3d()->get_scenario());
-			}
-			RenderingServer::get_singleton()->instance_set_transform(instance, get_global_transform() * item_xform);
-			RenderingServer::get_singleton()->instance_geometry_set_visibility_range(instance, range_begin, range_end, begin_margin, end_margin, fade_mode);
-			lc.render_instances.push_back(instance);
-
+			int mesh_index = -1;
 			if (culler) {
-				gpu_transforms.push_back(get_global_transform() * item_xform);
-				if (!has_gpu_instances) {
-					combined_local_aabb = mesh->get_aabb();
-					has_gpu_instances = true;
-				} else {
-					combined_local_aabb = combined_local_aabb.merge(mesh->get_aabb());
+				TypedArray<MultiMesh> mms = culler->get_multimeshes();
+				for (int m = 0; m < mms.size(); m++) {
+					Ref<MultiMesh> mm = mms[m];
+					if (mm.is_valid() && mm->get_mesh() == mesh) {
+						mesh_index = m;
+						break;
+					}
 				}
+			}
+
+			if (mesh_index != -1) {
+				batched_transforms[mesh_index].push_back(get_global_transform() * item_xform);
+				if (!batched_aabbs.has(mesh_index)) {
+					batched_aabbs[mesh_index] = mesh->get_aabb();
+				} else {
+					batched_aabbs[mesh_index] = batched_aabbs[mesh_index].merge(mesh->get_aabb());
+				}
+			} else {
+				RID instance = RenderingServer::get_singleton()->instance_create();
+				RenderingServer::get_singleton()->instance_set_base(instance, mesh->get_rid());
+				if (get_world_3d().is_valid()) {
+					RenderingServer::get_singleton()->instance_set_scenario(instance, get_world_3d()->get_scenario());
+				}
+				RenderingServer::get_singleton()->instance_set_transform(instance, get_global_transform() * item_xform);
+				RenderingServer::get_singleton()->instance_geometry_set_visibility_range(instance, range_begin, range_end, begin_margin, end_margin, fade_mode);
+				lc.render_instances.push_back(instance);
 			}
 			continue;
 		}
@@ -639,19 +629,23 @@ void WorldPartitionManager::_instantiate_chunk(const WorldGridIndex &p_index) {
 		if (scene.is_valid()) {
 			Node *instance = scene->instantiate();
 			if (instance) {
-				add_child(instance);
-				Node3D *spatial = Object::cast_to<Node3D>(instance);
-				if (spatial) {
-					spatial->set_transform(item_xform);
+				Node3D *n3d = Object::cast_to<Node3D>(instance);
+				if (n3d) {
+					n3d->set_transform(item_xform);
+					_apply_visibility_range(n3d, range_begin, range_end, begin_margin, end_margin, fade_mode);
 				}
-				_apply_visibility_range(instance, range_begin, range_end, begin_margin, end_margin, fade_mode);
+				add_child(instance);
 				lc.scene_instances.push_back(instance);
 			}
+			continue;
 		}
 	}
 
-	if (culler && has_gpu_instances && !gpu_transforms.is_empty()) {
-		lc.gpu_cull_batch_id = culler->add_instance_batch(gpu_transforms, combined_local_aabb);
+	if (culler && !batched_transforms.is_empty()) {
+		for (const KeyValue<int, TypedArray<Transform3D>> &E : batched_transforms) {
+			int batch_id = culler->add_instance_batch(E.key, E.value, batched_aabbs[E.key]);
+			lc.gpu_cull_batch_ids.push_back(batch_id);
+		}
 	}
 
 	emit_signal("chunk_loaded", p_index.level, p_index.x, p_index.z);
@@ -664,10 +658,16 @@ void WorldPartitionManager::_unload_chunk(const WorldGridIndex &p_index) {
 
 	LoadedChunk &lc = active_chunks[p_index];
 
+	if (lc.state == STATE_LOADING) {
+		current_concurrent_loads--;
+	}
+
 	WorldPartitionGPUCuller3D *culler = Object::cast_to<WorldPartitionGPUCuller3D>(get_gpu_culler());
-	if (culler && lc.gpu_cull_batch_id != -1) {
-		culler->remove_instance_batch(lc.gpu_cull_batch_id);
-		lc.gpu_cull_batch_id = -1;
+	if (culler && !lc.gpu_cull_batch_ids.is_empty()) {
+		for (int i = 0; i < lc.gpu_cull_batch_ids.size(); i++) {
+			culler->remove_instance_batch(lc.gpu_cull_batch_ids[i]);
+		}
+		lc.gpu_cull_batch_ids.clear();
 	}
 
 	for (int i = 0; i < lc.scene_instances.size(); i++) {

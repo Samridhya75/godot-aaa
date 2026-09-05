@@ -603,7 +603,7 @@ void TextureStreaming::_feedback_buffer_process(uint64_t p_ticks_msec) {
 		// Compute effective best/worst mip (0 = highest quality).
 		// Per-texture overrides are hard bounds. System overrides/project settings
 		// are intersected with those bounds rather than replacing them.
-		uint8_t system_min_lod = _get_system_min_lod();
+		uint8_t system_min_lod = _get_system_min_lod() + global_mip_bias;
 		uint8_t system_max_lod = _get_system_max_lod();
 		uint8_t texture_min_lod = state->min_lod_override != LOD_NO_OVERRIDE ? state->min_lod_override - 1 : MIN_LOD_LEVEL;
 		uint8_t texture_max_lod = state->max_lod_override != LOD_NO_OVERRIDE ? state->max_lod_override - 1 : MAX_LOD_LEVEL;
@@ -729,6 +729,13 @@ void TextureStreaming::_feedback_buffer_process(uint64_t p_ticks_msec) {
 			if (assigned_bytes > budget_low) {
 				WARN_PRINT_ONCE(vformat(
 						"Texture streaming budget cannot be satisfied even at minimum quality. Used %s, budget %s bytes.", String::humanize_size(assigned_bytes), String::humanize_size(budget_bytes)));
+				if (global_mip_bias < MAX_LOD_LEVEL) {
+					global_mip_bias++;
+				}
+			}
+		} else if (budget_bytes > 0 && assigned_bytes < budget_low) {
+			if (global_mip_bias > 0) {
+				global_mip_bias--;
 			}
 		}
 	}

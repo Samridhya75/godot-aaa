@@ -9,5 +9,9 @@ env_wp = env_modules.Clone()
 glsl_header = env_wp.GLSL_HEADER("gpu_cull.glsl")
 env_wp.Depends(glsl_header, ["#glsl_builders.py"])
 
+hiz_header = env_wp.GLSL_HEADER("hiz_generate.glsl")
+env_wp.Depends(hiz_header, ["#glsl_builders.py"])
+
 sources = env_wp.add_source_files(env.modules_sources, "*.cpp")
 env_wp.Depends(sources, glsl_header)
+env_wp.Depends(sources, hiz_header)

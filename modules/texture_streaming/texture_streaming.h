@@ -435,6 +435,8 @@ private:
 	_FORCE_INLINE_ uint8_t _get_system_min_lod() const { return setting_min_lod_override != UINT8_MAX ? setting_min_lod_override : setting_min_lod; }
 	_FORCE_INLINE_ uint8_t _get_system_max_lod() const { return setting_max_lod_override != UINT8_MAX ? setting_max_lod_override : setting_max_lod; }
 
+	uint8_t global_mip_bias = 0;
+
 	// Feedback buffer processing
 	Thread feedback_buffer_thread;
 	uint64_t feedback_buffer_last_submit_ticks = 0;
